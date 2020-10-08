@@ -126,7 +126,10 @@ def extract_keypoints(args):
         if img_path.endswith('.txt'):
             args.images = open(img_path).read().splitlines() + args.images
             continue
-        
+
+        if os.path.exists(img_path + ".r2d2"):
+            print(f"Skipping {img_path}")
+            continue
         print(f"\nExtracting features for {img_path}")
         img = Image.open(img_path).convert('RGB')
         W, H = img.size
