@@ -1,5 +1,5 @@
 import numpy as np
-import os
+import os, sys
 from sklearn.cluster import KMeans, MiniBatchKMeans
 import uuid
 
@@ -10,7 +10,7 @@ class Voctree:
 
         self.leaves = []
         self.centroids = []
-        self.leaf = (dscr.shape[0] < max_children) or (level >= max_level)
+        self.leaf = (not len(centroids) and dscr.shape[0] < max_children) or (level >= max_level)
         self.dscr = dscr
         self.level = level
         self.max_level = max_level
@@ -19,20 +19,27 @@ class Voctree:
         if fpath:
             self.load(fpath)
         elif not self.leaf:
-            print("Building at level ", level)
+            #print("Building at level ", level)
             self.build(centroids, names, structure)
 
     def build(self, centroids=[], names=[], structure={}):
         if len(centroids) > 0:
-            print(structure)
-            for i in structure.keys():
-                ndx = names.index(i)
+            #print(structure, type(structure), structure.item()["cd5d0de6"])
+            if not len(structure):
+                self.leaf = True
+            for i in structure:
+                
+                #print(i)
+                ndx = np.where(names == i)
+                #print(centroids.shape, centroids[ndx].shape)
                 self.centroids.append(centroids[ndx])
-                if len(structure[i]):
-                    self.leaf = True
-                    continue
+                #if len(structure[i]):
+                #    self.leaf = True
+                #    continue
                 tmp = Voctree(centroids=centroids, names=names, structure=structure[i], level=self.level+1, max_level=self.max_level, max_children=self.max_children, name=i)
                 self.leaves.append(tmp)
+            if len(self.centroids):
+                self.centroids = np.vstack(self.centroids)
         else:
             kmeans = MiniBatchKMeans(n_clusters=self.max_children)
             kmeans.fit(self.dscr)
@@ -44,14 +51,16 @@ class Voctree:
             
     def save(self):
         c, n, s = self.represent()
+    
         np.savez("vocab.npz", centroids=c, names=n, structure=s)
 
     def load(self, path):
         data = np.load(path, allow_pickle=True)
         centroids = data["centroids"]
-        print(centroids.shape)
+    
         names = data["names"]
-        structure = data["structure"]
+    
+        structure = data["structure"].item()
         self.build(centroids, names, structure)
         
     def represent(self):
@@ -61,8 +70,8 @@ class Voctree:
         n = [] #names
         s = {} #structure
         c.append(self.centroids)
-        #for i in self.names:
-        #    n.append(i)
+        for i in self.leaves:
+            n.append(i.name)
         for i, (j, k) in enumerate(zip(self.leaves, self.centroids)):
             """
             if j.leaf:
@@ -73,27 +82,28 @@ class Voctree:
             else:
                 ndxs_, j_ = j.represent()
             """
-            n.append(j.name)
+            #n.append(j.name)
+            s[j.name] = {}
             if j.leaf:
                 continue
             c_, n_, s_ = j.represent()
-            if not c_ == []:
+            if len(c_):
                 c.append(c_.squeeze())
             for n__ in n_:
                 n.append(n__)
             s[j.name] = s_
         if len(c):
-            for i in c:
-                print(self.level*"\t", i.shape)
+            #for i in c:
+            #    print(self.level*"\t", i.shape)
             c = np.vstack(c)
         return c, n, s
 
 
     def __str__(self):
-        string = self.level*"\t"+" "+self.name+"\n"
-        for i in self.leaves:
-            string += str(i)
-        return string
+        string = self.level*"\t"+" "+self.name
+        for i,j in zip(self.leaves, self.centroids):
+            string +=  str(j[-1]) + " " + str(i)
+        return string + "\n"
     
 def load_dscr(path, dsize=10):
     gg=None
@@ -128,9 +138,14 @@ if __name__=="__main__":
     
     
     #path = "coco17/train/"
-    path = "db/"
+    #path = "db/"
+    if len(sys.argv) < 2:
+        exit("Give path to folder where the descriptors are.")
+    path = sys.argv[1]
+    if not path[-1] == "/":
+        path += "/"
     dsize = 10
-    gg = load_dscr(path, dsize)
+
     """
     kmeans = MiniBatchKMeans(n_clusters=10)
     kmeans.fit(gg)
@@ -144,8 +159,9 @@ if __name__=="__main__":
     print(kmeans.cluster_centers_.shape)
     np.save("vocab.npy", kmeans.cluster_centers_)
     """
-    asd = Voctree(gg, max_level=2)
-    print(asd)
-    asd.save()
+    #gg = load_dscr(path, dsize)
+    #asd = Voctree(gg, max_level=2)
+    #print(asd)
+    #asd.save()
     asd = Voctree(fpath="vocab.npz")
     print(asd)
