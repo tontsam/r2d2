@@ -1,6 +1,7 @@
 import numpy as np
 import os, sys
 from sklearn.cluster import KMeans, MiniBatchKMeans
+import scipy.spatial.distance as scp
 import uuid
 
 class Voctree:
@@ -10,7 +11,7 @@ class Voctree:
 
         self.leaves = []
         self.centroids = []
-        self.leaf = (not len(centroids) and dscr.shape[0] < max_children) or (level >= max_level)
+        self.leaf = (not fpath and not len(centroids) and dscr.shape[0] < max_children) or (level >= max_level)
         self.dscr = dscr
         self.level = level
         self.max_level = max_level
@@ -20,35 +21,43 @@ class Voctree:
             self.load(fpath)
         elif not self.leaf:
             #print("Building at level ", level)
-            self.build(centroids, names, structure)
+            self.ntotal = self.build(centroids, names, structure)
+        else:
+            self.ntotal = 1
 
     def build(self, centroids=[], names=[], structure={}):
+        ntotal = 0
         if len(centroids) > 0:
             #print(structure, type(structure), structure.item()["cd5d0de6"])
             if not len(structure):
                 self.leaf = True
+                ntotal = 1
             for i in structure:
                 
                 #print(i)
                 ndx = np.where(names == i)
                 #print(centroids.shape, centroids[ndx].shape)
                 self.centroids.append(centroids[ndx])
+                #ntotal += len(self.centroids)
                 #if len(structure[i]):
                 #    self.leaf = True
                 #    continue
                 tmp = Voctree(centroids=centroids, names=names, structure=structure[i], level=self.level+1, max_level=self.max_level, max_children=self.max_children, name=i)
                 self.leaves.append(tmp)
+                ntotal += tmp.ntotal
             if len(self.centroids):
                 self.centroids = np.vstack(self.centroids)
         else:
             kmeans = MiniBatchKMeans(n_clusters=self.max_children)
             kmeans.fit(self.dscr)
             self.centroids = kmeans.cluster_centers_
+            #ntotal += len(self.centroid)
             for i in range(len(self.centroids)):
                 j = self.dscr[kmeans.labels_ == i]
                 tmp = Voctree(j, level=self.level+1, max_level=self.max_level, max_children=self.max_children, name=str(uuid.uuid4())[:8])
                 self.leaves.append(tmp)
-            
+                ntotal += tmp.ntotal
+        return ntotal
     def save(self):
         c, n, s = self.represent()
     
@@ -61,7 +70,7 @@ class Voctree:
         names = data["names"]
     
         structure = data["structure"].item()
-        self.build(centroids, names, structure)
+        self.ntotal = self.build(centroids, names, structure)
         
     def represent(self):
         ndxs = {}
@@ -98,7 +107,14 @@ class Voctree:
             c = np.vstack(c)
         return c, n, s
 
-
+    def search(self, q):
+        dists = scp.cdist(q, self.centroids)
+        best_ndx = np.argmin(dists)
+        code = pow(self.max_children, self.level) * best_ndx
+        if not self.leaves[best_ndx].leaf:
+            code += self.leaves[best_ndx].search(q)
+        return code
+        
     def __str__(self):
         string = self.level*"\t"+" "+self.name
         for i,j in zip(self.leaves, self.centroids):
@@ -159,9 +175,13 @@ if __name__=="__main__":
     print(kmeans.cluster_centers_.shape)
     np.save("vocab.npy", kmeans.cluster_centers_)
     """
-    #gg = load_dscr(path, dsize)
-    #asd = Voctree(gg, max_level=2)
+    gg = load_dscr(path, dsize)
+    asd = Voctree(gg, max_level=2)
     #print(asd)
-    #asd.save()
+    asd.save()
+    q = np.expand_dims(gg[0], axis=0)
+    print(asd.ntotal, asd.search(q))
     asd = Voctree(fpath="vocab.npz")
-    print(asd)
+    #print(asd)
+
+    print(asd.ntotal, asd.search(q))
