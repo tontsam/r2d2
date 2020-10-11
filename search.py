@@ -3,16 +3,22 @@ import os, sys
 import scipy.spatial.distance as scp
 import faiss
 import json
+from vocab import Voctree
 
 def convert_to_codewords(vocab, name):
     asd = np.load(name)
     d = asd["descriptors"]
     #print(vocab.shape, d.shape, scp.cdist(d, vocab).shape)
-    dists = scp.cdist(d, vocab)
-    tmp = np.zeros(dists.shape)
+    #dists = scp.cdist(d, vocab)
+    tmp = np.zeros(vocab.ntotal)
+    for i in d:
+        i = np.expand_dims(i, axis=0)
+        q = vocab.search(i)
+        #print(q)
+        tmp[q] += 1
     #print(np.argmin(dists, axis=1).shape)
         
-    tmp[np.arange(dists.shape[0]), np.argmin(dists, axis=1)] = 1
+    #tmp[np.arange(dists.shape[0]), np.argmin(dists, axis=1)] = 1
     return tmp
 
 def create_ndx (vocab, path):
@@ -29,13 +35,14 @@ def create_ndx (vocab, path):
         files.append(i[:-5])
         n += 1
         tmp = convert_to_codewords(vocab, i)
+        #print(tmp.shape)
         tmp = get_tf(tmp)
         if not n:
-            ndx = np.sum(tmp, axis=0)
-            ndx = ndx[..., np.newaxis]
+            #ndx = np.sum(tmp, axis=0)
+            ndx = tmp[..., np.newaxis]
         else:
-            asd = np.sum(tmp, axis=0)
-            asd = asd[..., np.newaxis]
+            #asd = np.sum(tmp, axis=0)
+            asd = tmp[..., np.newaxis]
             ndx = np.concatenate((ndx, asd),axis=1)
         #print(ndx)
 
@@ -76,7 +83,8 @@ def evaluate(results):
 
 
 if __name__=="__main__":
-    vocab = np.load("vocab.npy")
+    #vocab = np.load("vocab.npy")
+    vocab = Voctree(fpath="vocab.npz")
     #ndx_train, label_train = create_ndx(vocab, sys.argv[1] + "/train/")
     #ndx_test, label_test = create_ndx(vocab, sys.argv[1] + "/test/")
     ndx_train, label_train = create_ndx(vocab, "db/")
@@ -90,7 +98,7 @@ if __name__=="__main__":
     print(ndx_test.shape)
     #np.save("landmarks_train.npy", ndx_train)
     #np.save("landmarks_test.npy", ndx_test)
-    index = faiss.IndexFlatIP(1024)
+    index = faiss.IndexFlatIP(vocab.ntotal)
     index.add(np.ascontiguousarray(ndx_train).astype(np.float32))
     print(index.ntotal)
     D, I = index.search(np.ascontiguousarray(ndx_test).astype(np.float32), 5)
