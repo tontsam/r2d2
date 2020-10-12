@@ -10,7 +10,7 @@ def convert_to_codewords(vocab, name):
     d = asd["descriptors"]
     #print(vocab.shape, d.shape, scp.cdist(d, vocab).shape)
     #dists = scp.cdist(d, vocab)
-    tmp = np.zeros(vocab.ntotal)
+    tmp = np.zeros(10000)
     for i in d:
         i = np.expand_dims(i, axis=0)
         q = vocab.search(i)
@@ -26,11 +26,13 @@ def create_ndx (vocab, path):
     ndx = None
     fs = os.listdir(path)
     files = []
+    
     for i in fs:
+        
         i = path + i
         if not i[-5:] == ".r2d2":
             continue
-        if "landmark" in i:
+        if not "landmark" in i:
             continue
         files.append(i[:-5])
         n += 1
@@ -85,19 +87,19 @@ def evaluate(results):
 if __name__=="__main__":
     #vocab = np.load("vocab.npy")
     vocab = Voctree(fpath="vocab.npz")
-    #ndx_train, label_train = create_ndx(vocab, sys.argv[1] + "/train/")
-    #ndx_test, label_test = create_ndx(vocab, sys.argv[1] + "/test/")
-    ndx_train, label_train = create_ndx(vocab, "db/")
+    ndx_train, label_train = create_ndx(vocab, sys.argv[1] + "/train/")
+    ndx_test, label_test = create_ndx(vocab, sys.argv[1] + "/test/")
+    #ndx_train, label_train = create_ndx(vocab, "db/")
     df = get_df(ndx_train)
-    ndx_test, label_test = create_ndx(vocab, "q/")
+    #ndx_test, label_test = create_ndx(vocab, "q/")
     ndx_train = get_tf(ndx_train)
     ndx_test = get_tf(ndx_test)
     ndx_train = np.multiply(ndx_train, df)
     ndx_test = np.multiply(ndx_test, df)
     print(ndx_train.shape)
     print(ndx_test.shape)
-    #np.save("landmarks_train.npy", ndx_train)
-    #np.save("landmarks_test.npy", ndx_test)
+    np.save("landmarks_train.npy", ndx_train)
+    np.save("landmarks_test.npy", ndx_test)
     index = faiss.IndexFlatIP(vocab.ntotal)
     index.add(np.ascontiguousarray(ndx_train).astype(np.float32))
     print(index.ntotal)

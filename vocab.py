@@ -45,7 +45,6 @@ class Voctree:
                 tmp = Voctree(centroids=centroids, names=names, structure=structure[i], level=self.level+1, max_level=self.max_level, max_children=self.max_children, name=i)
                 self.leaves.append(tmp)
                 ntotal += tmp.ntotal
-            
             if len(self.centroids):
                 self.centroids = np.vstack(self.centroids)
         else:
@@ -180,7 +179,7 @@ if __name__=="__main__":
     np.save("vocab.npy", kmeans.cluster_centers_)
     """
     gg = load_dscr(path, dsize)
-    #asd = Voctree(gg, max_level=3)
+    #asd = Voctree(gg, max_level=4)
     #print(asd)
     #asd.save()
     q = np.expand_dims(gg[0], axis=0)
